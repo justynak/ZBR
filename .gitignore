@@ -3,3 +3,5 @@
 moc*
 ui*
 *.o
+*user
+
