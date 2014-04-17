@@ -1,0 +1,5 @@
+##ignore qt generated files
+
+moc*
+ui*
+*.o
