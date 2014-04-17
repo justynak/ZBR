@@ -43,7 +43,7 @@ void KinematicPoints::SetS2C2()
     double zr = regionalPoint.z();
 
     s[2] = 1/(qPow(a, 2) + qPow(zr,2)) * (zr * b + delta2 * a * qSqrt(qPow(a, 2) + qPow(zr,2) - qPow(b,2)));
-    c[2] = 1/(qPow(a, 2) + qPow(zr,2)) * (a * b + delta2 * zr * qSqrt(qPow(a, 2) + qPow(zr,2) - qPow(b,2)) );
+    c[2] = 1/(qPow(a, 2) + qPow(zr,2)) * (a * b - delta2 * zr * qSqrt(qPow(a, 2) + qPow(zr,2) - qPow(b,2)) );
     fi[2] = qFabs(c[2])>qFabs(s[2])? qAsin(s[2]) : qAcos(c[2]);
 
     //if(fi[2]!=fi[2]) {emit outOfRange(); return;}
@@ -65,7 +65,7 @@ void KinematicPoints::SetS3C3()
 void KinematicPoints::SetS4C4()
 {
     s[4] = s234 * c23 - c234 * s23;
-    c[4] = c234*c23 - s234*s23;
+    c[4] = c234*c23 + s234*s23;
     fi[4] = qFabs(c[4])>qFabs(s[4])? qAsin(s[4]) : qAcos(c[4]);
     //if(fi[4]!=fi[4]) {emit outOfRange(); return;}
 
