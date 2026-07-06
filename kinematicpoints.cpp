@@ -149,11 +149,14 @@ void KinematicPoints::CalculateMachineCoordinates(QVector3D toolPoint)
       fi[i] = c[i]>s[i]? qAsin(s[i]) : qAcos(c[i]);
       if(fi[i]!=fi[i])
       {
-         // outOfRange handlers re-enter this function with lastValidPoint;
+         // the candidate point is unreachable: restore the pose at
+         // lastValidPoint so the robot never moves to an invalid state;
          // the guard stops infinite recursion if that point fails too
+         // (possible after a geometry change from Settings)
          if(!handlingOutOfRange)
          {
              handlingOutOfRange = true;
+             CalculateMachineCoordinates(lastValidPoint);
              emit outOfRange();
              handlingOutOfRange = false;
          }

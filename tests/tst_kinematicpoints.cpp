@@ -16,6 +16,7 @@ private slots:
     void roundTripReachablePoints_data();
     void roundTripReachablePoints();
     void outOfRangeKeepsLastValidPoint();
+    void outOfRangeLeavesRobotAtLastValidPose();
     void outOfRangeEmitsEveryTime();
     void statusOKOnNewValidPoint();
     void statusOKNotEmittedForSamePoint();
@@ -78,6 +79,29 @@ void TestKinematicPoints::outOfRangeKeepsLastValidPoint()
     QCOMPARE(errSpy.count(), 1);
     QCOMPARE(okSpy.count(), 0);
     QCOMPARE(kp.GetLastValidPoint(), valid);
+}
+
+// Design decision: the robot stops BEFORE moving to an unreachable point.
+// A failed candidate must never remain in the object's state — after a
+// rejected point every getter still reflects the pose at lastValidPoint.
+void TestKinematicPoints::outOfRangeLeavesRobotAtLastValidPose()
+{
+    KinematicPoints kp;
+    QVector3D valid(420, 210, 310);
+    kp.CalculateMachineCoordinates(valid);
+    QList<QVector3D> pose = kp.GetJointPoints();
+
+    QSignalSpy errSpy(&kp, SIGNAL(outOfRange()));
+    kp.CalculateMachineCoordinates(QVector3D(5000, 5000, 5000));
+
+    QCOMPARE(errSpy.count(), 1);
+    QCOMPARE(kp.GetToolPoint(), valid);
+
+    QList<QVector3D> after = kp.GetJointPoints();
+    QCOMPARE(after.size(), pose.size());
+    for(int i = 0; i < pose.size(); ++i)
+        QVERIFY2((after[i] - pose[i]).length() < 0.5,
+                 qPrintable(QString("joint %1 moved").arg(i)));
 }
 
 // Regression test for the old `static bool ok` in CalculateMachineCoordinates:
