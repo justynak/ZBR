@@ -7,11 +7,6 @@
 #define B 1000
 
 
-/*
-MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow)
-  */
 WidgetAnimation::WidgetAnimation(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::WidgetAnimation)
@@ -20,11 +15,6 @@ WidgetAnimation::WidgetAnimation(QWidget *parent) :
     sceneXY = new QGraphicsScene(this);
     sceneXZ = new QGraphicsScene(this);
     sceneYZ = new QGraphicsScene(this);
-
-    finished = false;
-    pathChanged = false;
-    timer = new QTimer();
-    currentPoint = 0;
 
     ui->graphicsViewXY->setScene(sceneXY);
     ui->graphicsViewXZ->setScene(sceneXZ);
@@ -35,15 +25,12 @@ WidgetAnimation::WidgetAnimation(QWidget *parent) :
     ui->graphicsViewXZ->setRenderHint(QPainter::Antialiasing);
 
     ui->progressBar->setValue(0);
-
+    OnStateChanged(SimulationController::Idle);
 
     // the on_<object>_<signal> slots are auto-connected by
     // connectSlotsByName inside setupUi — do not connect them again here,
     // or every click fires twice
     connect(ui->sliderScale, SIGNAL(valueChanged(int)), this, SLOT(PaintJoints()));
-
-    connect(timer, SIGNAL(timeout()), this, SLOT(GoToNextTrajectoryPoint()));
-
 }
 
 void WidgetAnimation::PaintGrid(double scale)
@@ -72,86 +59,21 @@ WidgetAnimation::~WidgetAnimation()
     delete ui;
 }
 
-void WidgetAnimation::StartSimuation()
+int WidgetAnimation::IntervalMs() const
 {
-    currentPoint = 0;
-    ChangeSpeed();
+    return ui->sliderSpeed->value() * A + B;
 }
 
-void WidgetAnimation::ClearPath()
-{
-    trajectory->ClearPoints(finished);
-    sceneXY->clear();
-    sceneXZ->clear();
-    sceneYZ->clear();
-    PaintJoints();
-
-    ui->progressBar->setValue(0);
-}
-
-void WidgetAnimation::RemovePath()
-{
-    PaintJoints();
-    trajectory->ClearPoints(true);
-}
-
-void WidgetAnimation::OutOfRangeError()
+void WidgetAnimation::OnStateChanged(int state)
 {
     QPixmap pix = QPixmap(70, 50);
-    pix.fill(Qt::darkRed);
+    pix.fill(state == SimulationController::OutOfRange ? Qt::darkRed : Qt::darkGreen);
     ui->labelValid->setPixmap(pix);
-
-    ClearPath();
-    timer->stop();
-    jointPoints->CalculateMachineCoordinates(jointPoints->GetLastValidPoint());
-    PaintJoints();
-    currentPoint = 0;
-    trajectory->SetNewTCP(jointPoints->GetLastValidPoint());
 }
 
-void WidgetAnimation::GoToNextTrajectoryPoint()
+void WidgetAnimation::OnProgressChanged(int percent)
 {
-    if(trajectory->pointsNumber() != 0 )
-    {
-
-        if(currentPoint >= trajectory->pointsNumber())
-        {
-            timer->stop();
-            currentPoint = 0;
-            finished = true;
-            RemovePath();
-            ui->progressBar->setValue(100);
-        }
-
-        else
-        {
-            QVector3D p = (*trajectory)[currentPoint];
-            jointPoints->CalculateMachineCoordinates(p);
-
-            if(trajectory->pointsNumber())
-                ui->progressBar->setValue(100 * (currentPoint+1) / trajectory->pointsNumber());
-
-            ++currentPoint;
-        }
-    }
-}
-
-void WidgetAnimation::CreateLinearPath()
-{
-    //get start, stop and nr of steps
-    QVector3D stop = QVector3D(ui->lineEditStopX->text().toDouble(), ui->lineEditStopY->text().toDouble(), ui->lineEditStopZ->text().toDouble());
-    int n = ui->lineEditNLine->text().toInt();
-    trajectory->GenerateLine( stop, n);
-}
-
-void WidgetAnimation::CreateCurvePath()
-{
-    //get radius, center
-    QVector3D center = QVector3D(ui->lineEditCenterX->text().toDouble(), ui->lineEditCenterY->text().toDouble(),  ui->lineEditCenterZ->text().toDouble());
-    double fi = ui->lineEditFi->text().toDouble();
-    double theta = ui->lineEditTheta->text().toDouble();
-    int n = ui->lineEditNCircle->text().toInt();
-    trajectory->GenerateCurve(center, fi, theta, n);
+    ui->progressBar->setValue(percent);
 }
 
 void WidgetAnimation::PaintJoints()
@@ -178,7 +100,7 @@ void WidgetAnimation::PaintJoints()
 
     //XY - get x, y coordinates
     for(int i=0; i<pointList.size() - 1; ++i)
-    {   
+    {
         sceneXY->addLine(pointList[i].x(), pointList[i].y(), pointList[i+1].x(), pointList[i+1].y(), pen );
         sceneXY->addEllipse(pointList[i].x()-5, pointList[i].y()-5, 10, 10, pen, brush);
         sceneXZ->addLine(pointList[i].x(), pointList[i].z(), pointList[i+1].x(),pointList[i+1].z(), pen );
@@ -209,13 +131,6 @@ void WidgetAnimation::PaintJoints()
     }
 
     PaintPath();
-}
-
-void WidgetAnimation::ChangeSpeed()
-{
-    int speed = ui->sliderSpeed->value();
-    speed = ui->sliderSpeed->value() * A + B;
-    timer->setInterval(speed);
 }
 
 void WidgetAnimation::PaintPath()
@@ -251,56 +166,52 @@ void WidgetAnimation::PaintPath()
         sceneXZ->addEllipse(pointList[max-1].x()-2, pointList[max-1].z()-2, 4, 4, pen, brush);
         sceneYZ->addEllipse(pointList[max-1].y()-2, pointList[max-1].z()-2, 4, 4, pen, brush);
     }
-    pathChanged = false;
-}
-
-void WidgetAnimation::SetStatusValid()
-{
-
-    QPixmap pix = QPixmap(70, 50);
-    pix.fill(Qt::darkGreen);
-    ui->labelValid->setPixmap(pix);
 }
 
 void WidgetAnimation::on_buttonClear_clicked()
 {
-    ClearPath();
+    controller->ClearPath();
 }
 
 void WidgetAnimation::on_buttonStep_clicked()
 {
-    timer->stop();
-    GoToNextTrajectoryPoint();
+    controller->Step();
 }
 
 void WidgetAnimation::on_buttonStop_clicked()
 {
-    timer->stop();
+    controller->Stop();
 }
 
 void WidgetAnimation::on_buttonStart_clicked()
 {
-    ChangeSpeed();
-    timer->start();
-    finished = false;
+    controller->SetInterval(IntervalMs());
+    controller->Start();
 }
 
 void WidgetAnimation::on_buttonCircleAdd_clicked()
 {
-    CreateCurvePath();
+    QVector3D center = QVector3D(ui->lineEditCenterX->text().toDouble(), ui->lineEditCenterY->text().toDouble(),  ui->lineEditCenterZ->text().toDouble());
+    double fi = ui->lineEditFi->text().toDouble();
+    double theta = ui->lineEditTheta->text().toDouble();
+    int n = ui->lineEditNCircle->text().toInt();
+    controller->AddCurvePath(center, fi, theta, n);
 }
+
 void WidgetAnimation::on_buttonLineAdd_clicked()
 {
-    CreateLinearPath();
+    QVector3D stop = QVector3D(ui->lineEditStopX->text().toDouble(), ui->lineEditStopY->text().toDouble(), ui->lineEditStopZ->text().toDouble());
+    int n = ui->lineEditNLine->text().toInt();
+    controller->AddLinePath(stop, n);
 }
 
 void WidgetAnimation::on_sliderSpeed_sliderMoved(int position)
 {
-    ChangeSpeed();
+    controller->SetInterval(IntervalMs());
 }
 
 void WidgetAnimation::on_buttonReset_clicked()
 {
     jointPoints->RestoreCustomSettings();
-    trajectory->SetNewTCP(jointPoints->GetToolPoint());
+    controller->Reset();
 }

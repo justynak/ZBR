@@ -13,9 +13,9 @@ MOC      ?= moc
 UIC      ?= uic
 
 SOURCES     := main.cpp mainwindow.cpp widgetanimation.cpp widgetsettings.cpp \
-               kinematicpoints.cpp trajectorypoints.cpp
+               kinematicpoints.cpp trajectorypoints.cpp simulationcontroller.cpp
 MOC_HEADERS := mainwindow.h widgetanimation.h widgetsettings.h \
-               kinematicpoints.h trajectorypoints.h
+               kinematicpoints.h trajectorypoints.h simulationcontroller.h
 FORMS       := mainwindow.ui widgetanimation.ui widgetsettings.ui
 
 # Qt flags via pkg-config when available; otherwise fall back to the

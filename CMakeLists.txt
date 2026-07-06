@@ -25,6 +25,8 @@ add_executable(ZBRy
     kinematicpoints.h
     trajectorypoints.cpp
     trajectorypoints.h
+    simulationcontroller.cpp
+    simulationcontroller.h
 )
 
 target_link_libraries(ZBRy PRIVATE Qt5::Widgets)

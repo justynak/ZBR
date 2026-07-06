@@ -6,6 +6,7 @@
 #include "widgetanimation.h"
 #include "trajectorypoints.h"
 #include "kinematicpoints.h"
+#include "simulationcontroller.h"
 #include "widgetsettings.h"
 namespace Ui {
 class MainWindow;
@@ -25,11 +26,10 @@ private:
     //instances
     TrajectoryPoints* trajectory;
     KinematicPoints* jointPoints;
+    SimulationController* controller;
 
     WidgetAnimation* animation;
     WidgetSettings* settings;
-
-    int currentPoint;
 
 
 signals:
