@@ -144,25 +144,21 @@ void KinematicPoints::CalculateMachineCoordinates(QVector3D toolPoint)
     SetJointPoints();
     SetCalculatedJointPoints();
 
-   static bool ok = true;
    for(int i=0; i<5; ++i)
    {
       fi[i] = c[i]>s[i]? qAsin(s[i]) : qAcos(c[i]);
       if(fi[i]!=fi[i])
       {
-         if(ok)
+         // outOfRange handlers re-enter this function with lastValidPoint;
+         // the guard stops infinite recursion if that point fails too
+         if(!handlingOutOfRange)
          {
-             ok = false;
+             handlingOutOfRange = true;
              emit outOfRange();
-             return;
+             handlingOutOfRange = false;
          }
-
-        else
-         {
-             ok = true;
-             return;
-         }
-        }
+         return;
+      }
    }
 
     if(lastValidPoint != toolPoint)
