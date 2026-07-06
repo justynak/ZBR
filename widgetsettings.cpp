@@ -24,8 +24,8 @@ void WidgetSettings::SetKinematicPoints(KinematicPoints *p)
     jointPoints = p;
     connect(jointPoints, SIGNAL(statusOK()), this, SLOT(UpdateCalculations()));
     connect(jointPoints, SIGNAL(outOfRange()), this, SLOT(OutOfRangeError()));
+    // on_buttonReset_clicked is auto-connected by connectSlotsByName in setupUi
     connect(ui->buttonSet, SIGNAL(clicked()), this, SLOT(UpdateParameters()));
-    connect(ui->buttonReset, SIGNAL(clicked()), this, SLOT(on_buttonReset_clicked()));
 
 }
 

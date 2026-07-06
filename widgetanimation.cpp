@@ -37,15 +37,9 @@ WidgetAnimation::WidgetAnimation(QWidget *parent) :
     ui->progressBar->setValue(0);
 
 
-    //connect slots
-    connect(ui->buttonCircleAdd, SIGNAL(clicked()), this, SLOT(on_buttonCircleAdd_clicked()));
-    connect(ui->buttonClear, SIGNAL(clicked()), this, SLOT(on_buttonClear_clicked()));
-    connect(ui->buttonLineAdd, SIGNAL(clicked()), this, SLOT(on_buttonLineAdd_clicked()));
-    connect(ui->buttonStart, SIGNAL(clicked()), this, SLOT(on_buttonStart_clicked()));
-    connect(ui->buttonStep, SIGNAL(clicked()), this, SLOT(on_buttonStep_clicked()));
-    connect(ui->buttonStop, SIGNAL(clicked()), this, SLOT(on_buttonStop_clicked()));
-    connect(ui->buttonStart, SIGNAL(clicked()), timer, SLOT(start()));
-    connect(ui->buttonReset, SIGNAL(clicked()), this, SLOT(on_buttonReset_clicked()));
+    // the on_<object>_<signal> slots are auto-connected by
+    // connectSlotsByName inside setupUi — do not connect them again here,
+    // or every click fires twice
     connect(ui->sliderScale, SIGNAL(valueChanged(int)), this, SLOT(PaintJoints()));
 
     connect(timer, SIGNAL(timeout()), this, SLOT(GoToNextTrajectoryPoint()));
@@ -293,24 +287,11 @@ void WidgetAnimation::on_buttonStart_clicked()
 
 void WidgetAnimation::on_buttonCircleAdd_clicked()
 {
-    static bool clicked = 0;
-    if(!clicked)
-    {
-        CreateCurvePath();
-    }
-    clicked = !clicked;
-
+    CreateCurvePath();
 }
 void WidgetAnimation::on_buttonLineAdd_clicked()
-{    
-    static bool clicked = 0;
-
-    if(!clicked)
-    {
-        CreateLinearPath();
-    }
-    clicked = !clicked;
-
+{
+    CreateLinearPath();
 }
 
 void WidgetAnimation::on_sliderSpeed_sliderMoved(int position)
