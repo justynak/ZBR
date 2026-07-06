@@ -10,25 +10,42 @@ void TrajectoryPoints::GenerateCurve(QVector3D center, double fi, double theta, 
     double stepFi = qDegreesToRadians(fi) / n;
     double stepTheta = qDegreesToRadians(theta) / n;
 
-    QVector3D referencePoint;
+    double radius, startTheta, startFi;
 
-    if(points.isEmpty())
-        referencePoint = currentTCP;
+    if(chainValid && center == chainCenter && !points.isEmpty())
+    {
+        // continue exactly where the previous curve ended, so repeated
+        // clicks retrace a closed path instead of kinking at pole crossings
+        radius = chainRadius;
+        startTheta = chainTheta;
+        startFi = chainFi;
+    }
     else
-        referencePoint = points.last();
+    {
+        QVector3D referencePoint;
 
-    QVector3D pointInSphere = QVector3D(referencePoint.x() - center.x(),referencePoint.y() - center.y(),referencePoint.z() - center.z());
+        if(points.isEmpty())
+            referencePoint = currentTCP;
+        else
+            referencePoint = points.last();
 
-    double radius = qSqrt(qPow(pointInSphere.x(),2) + qPow(pointInSphere.y(),2) + qPow(pointInSphere.z(),2));
-    if(radius == 0.0) return;
+        QVector3D pointInSphere = QVector3D(referencePoint.x() - center.x(),referencePoint.y() - center.y(),referencePoint.z() - center.z());
 
-    double startTheta = qAsin(( pointInSphere.z()/radius ));
+        radius = qSqrt(qPow(pointInSphere.x(),2) + qPow(pointInSphere.y(),2) + qPow(pointInSphere.z(),2));
+        if(radius == 0.0) return;
 
-    // atan2 keeps the quadrant; plain atan made arcs starting at x<0
-    // jump to the mirrored azimuth
-    double startFi = qAtan2(pointInSphere.y(), pointInSphere.x());
+        startTheta = qAsin(( pointInSphere.z()/radius ));
 
-    //points.append(currentTCP);
+        // atan2 keeps the quadrant; plain atan made arcs starting at x<0
+        // jump to the mirrored azimuth
+        startFi = qAtan2(pointInSphere.y(), pointInSphere.x());
+    }
+
+    chainValid = true;
+    chainCenter = center;
+    chainRadius = radius;
+    chainTheta = startTheta + stepTheta * n;
+    chainFi = startFi + stepFi * n;
 
     for(int i=0; i<n+1; ++i)
     {
@@ -47,6 +64,8 @@ void TrajectoryPoints::GenerateCurve(QVector3D center, double fi, double theta, 
 void TrajectoryPoints::GenerateLine(QVector3D stop, int n)
 {
     if(n < 1) return;
+
+    chainValid = false; // the path leaves the sphere
 
     QVector3D reference;
     if(points.isEmpty())
