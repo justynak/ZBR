@@ -15,8 +15,10 @@ class TestTrajectoryPoints : public QObject
 private slots:
     void lineFromCurrentTCP();
     void lineAppendsFromLastPoint();
-    void lineWithZeroStepsDividesByZero();
-    void curveQuarterFactor();
+    void lineWithZeroStepsIsRejected();
+    void curveSweepsRequestedDegrees();
+    void curveFullCircleClosesOnStart();
+    void curveStartingAtNegativeXStaysPut();
     void curveZeroRadiusIsNoOp();
     void clearPointsMovesTCPToLastPoint();
     void clearPointsCanKeepTCP();
@@ -57,27 +59,28 @@ void TestTrajectoryPoints::lineAppendsFromLastPoint()
     QVERIFY(fuzzyEq(tp[5], QVector3D(10, 10, 0)));
 }
 
-// Known issue, pinned as-is: n=0 divides by zero and appends a single
-// non-finite point instead of rejecting the input.
-void TestTrajectoryPoints::lineWithZeroStepsDividesByZero()
+// n<1 is invalid input: no points appended, no signal emitted
+// (previously divided by zero and appended a non-finite point)
+void TestTrajectoryPoints::lineWithZeroStepsIsRejected()
 {
     TrajectoryPoints tp(QVector3D(0, 0, 0));
+    QSignalSpy spy(&tp, SIGNAL(pathGenerated()));
 
     tp.GenerateLine(QVector3D(10, 0, 0), 0);
 
-    QCOMPARE(tp.pointsNumber(), 1);
-    QVERIFY(qIsNaN(tp[0].x()) || qIsInf(tp[0].x()));
+    QCOMPARE(tp.pointsNumber(), 0);
+    QCOMPARE(spy.count(), 0);
 }
 
-// GenerateCurve converts the fi/theta inputs with qAtan(1)/180 = pi/720,
-// a quarter of the usual degree-to-radian factor pi/180. Pinned as-is:
-// requesting fi=360 over n=4 steps yields a 90-degree arc (22.5 deg/step).
-void TestTrajectoryPoints::curveQuarterFactor()
+// Contract: fi/theta are in degrees, a request of X degrees sweeps
+// exactly X degrees of arc. (The old pi/720 factor compensated for
+// duplicated slot connections in the UI layer, fixed alongside this.)
+void TestTrajectoryPoints::curveSweepsRequestedDegrees()
 {
     TrajectoryPoints tp(QVector3D(100, 0, 0));
     QSignalSpy spy(&tp, SIGNAL(pathGenerated()));
 
-    tp.GenerateCurve(QVector3D(0, 0, 0), 360.0, 0.0, 4);
+    tp.GenerateCurve(QVector3D(0, 0, 0), 90.0, 0.0, 4);
 
     QCOMPARE(spy.count(), 1);
     QCOMPARE(tp.pointsNumber(), 5);
@@ -85,6 +88,30 @@ void TestTrajectoryPoints::curveQuarterFactor()
     QVERIFY(fuzzyEq(tp[1], QVector3D(92.3880f, 38.2683f, 0)));  // 22.5 deg
     QVERIFY(fuzzyEq(tp[2], QVector3D(70.7107f, 70.7107f, 0)));  // 45 deg
     QVERIFY(fuzzyEq(tp[4], QVector3D(0, 100, 0)));              // 90 deg
+}
+
+void TestTrajectoryPoints::curveFullCircleClosesOnStart()
+{
+    TrajectoryPoints tp(QVector3D(100, 0, 0));
+
+    tp.GenerateCurve(QVector3D(0, 0, 0), 360.0, 0.0, 8);
+
+    QCOMPARE(tp.pointsNumber(), 9);
+    QVERIFY(fuzzyEq(tp[8], QVector3D(100, 0, 0)));
+    QVERIFY(fuzzyEq(tp[4], QVector3D(-100, 0, 0))); // halfway around
+}
+
+// Regression test for the qAtan quadrant bug: an arc starting at x<0
+// used to jump to the mirrored azimuth instead of starting at the TCP.
+void TestTrajectoryPoints::curveStartingAtNegativeXStaysPut()
+{
+    TrajectoryPoints tp(QVector3D(-100, 0, 0));
+
+    tp.GenerateCurve(QVector3D(0, 0, 0), 90.0, 0.0, 2);
+
+    QCOMPARE(tp.pointsNumber(), 3);
+    QVERIFY(fuzzyEq(tp[0], QVector3D(-100, 0, 0))); // starts at the TCP
+    QVERIFY(fuzzyEq(tp[2], QVector3D(0, -100, 0))); // 180deg + 90deg = 270deg
 }
 
 void TestTrajectoryPoints::curveZeroRadiusIsNoOp()

@@ -4,9 +4,11 @@
 
 void TrajectoryPoints::GenerateCurve(QVector3D center, double fi, double theta, int n)
 {
+    if(n < 1) return;
 
-    double stepFi =fi/n*qAtan(1)/180.0;
-    double stepTheta = theta/n*qAtan(1)/180.0;
+    // fi and theta are in degrees; a request of X degrees sweeps X degrees of arc
+    double stepFi = qDegreesToRadians(fi) / n;
+    double stepTheta = qDegreesToRadians(theta) / n;
 
     QVector3D referencePoint;
 
@@ -22,11 +24,9 @@ void TrajectoryPoints::GenerateCurve(QVector3D center, double fi, double theta, 
 
     double startTheta = qAsin(( pointInSphere.z()/radius ));
 
-    double startFi=0.0;
-    if (pointInSphere.x()!=0)
-    {
-        startFi = qAtan((pointInSphere.y()/(pointInSphere.x())));
-    }
+    // atan2 keeps the quadrant; plain atan made arcs starting at x<0
+    // jump to the mirrored azimuth
+    double startFi = qAtan2(pointInSphere.y(), pointInSphere.x());
 
     //points.append(currentTCP);
 
@@ -46,6 +46,8 @@ void TrajectoryPoints::GenerateCurve(QVector3D center, double fi, double theta, 
 
 void TrajectoryPoints::GenerateLine(QVector3D stop, int n)
 {
+    if(n < 1) return;
+
     QVector3D reference;
     if(points.isEmpty())
         reference = currentTCP;
