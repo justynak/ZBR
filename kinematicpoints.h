@@ -53,6 +53,7 @@ private:
     QVector3D toolPointCalculated, transitionalPointCalculated, regionalPointCalculated;
     QVector3D lastValidPoint;
     bool valid;
+    bool handlingOutOfRange = false;
 
 public slots:
 
@@ -101,23 +102,23 @@ public slots:
     //get
     int GetL(int n)
     {
-        if(n>7) return -1;
+        if(n<0 || n>6) return -1;
         return this->l[n];
     }
 
     double GetFi(int n)
     {
-        if(n>5) return -1;
+        if(n<0 || n>5) return -1;
         return this->fi[n];
     }
     double GetS(int n)
     {
-        if(n>5) return -1;
+        if(n<0 || n>5) return -1;
         return this->s[n];
     }
     double GetC(int n)
     {
-        if(n>5) return -1;
+        if(n<0 || n>5) return -1;
         return this->c[n];
     }
 

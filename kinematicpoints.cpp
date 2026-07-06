@@ -144,25 +144,24 @@ void KinematicPoints::CalculateMachineCoordinates(QVector3D toolPoint)
     SetJointPoints();
     SetCalculatedJointPoints();
 
-   static bool ok = true;
    for(int i=0; i<5; ++i)
    {
       fi[i] = c[i]>s[i]? qAsin(s[i]) : qAcos(c[i]);
       if(fi[i]!=fi[i])
       {
-         if(ok)
+         // the candidate point is unreachable: restore the pose at
+         // lastValidPoint so the robot never moves to an invalid state;
+         // the guard stops infinite recursion if that point fails too
+         // (possible after a geometry change from Settings)
+         if(!handlingOutOfRange)
          {
-             ok = false;
+             handlingOutOfRange = true;
+             CalculateMachineCoordinates(lastValidPoint);
              emit outOfRange();
-             return;
+             handlingOutOfRange = false;
          }
-
-        else
-         {
-             ok = true;
-             return;
-         }
-        }
+         return;
+      }
    }
 
     if(lastValidPoint != toolPoint)

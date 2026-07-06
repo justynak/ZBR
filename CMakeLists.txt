@@ -28,3 +28,6 @@ add_executable(ZBRy
 )
 
 target_link_libraries(ZBRy PRIVATE Qt5::Widgets)
+
+enable_testing()
+add_subdirectory(tests)
