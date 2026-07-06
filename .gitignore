@@ -1,7 +1,10 @@
-##ignore qt generated files
-
-moc*
-ui*
+# build output
+build*/
+ZBRy
 *.o
-*user
 
+# Qt Creator
+*.pro.user
+
+# LibreOffice lock files
+.~lock.*#

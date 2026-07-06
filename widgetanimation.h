@@ -3,7 +3,7 @@
 
 #include <QWidget>
 #include <QGraphicsScene>
-#include <QtGui>
+#include <QtWidgets>
 #include <QVector3D>
 
 #include "trajectorypoints.h"
