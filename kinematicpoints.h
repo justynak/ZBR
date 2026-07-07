@@ -10,32 +10,57 @@ class KinematicPoints : public QObject
 {
 
 public:
-    explicit KinematicPoints()
+    // the robot's dimensions as a value object, so a candidate geometry
+    // can be solved against without committing it (Settings transaction)
+    struct Geometry
     {
-        l[1] = 250.0;
-        l[2] = 250.0;
-        l[3] = 550.0;
-        l[4] = 100.0;
-        l[5] = 100.0;
-        l[6] = 80.0;
+        double l[7];
+        double d, e;
+        double psi, theta;
+        double delta1, delta2, delta5;
+    };
 
-        d = 50.0;
-        e = 200.0;
+    static Geometry DefaultGeometry()
+    {
+        Geometry g;
+        g.l[0] = 0.0;
+        g.l[1] = 250.0;
+        g.l[2] = 250.0;
+        g.l[3] = 550.0;
+        g.l[4] = 100.0;
+        g.l[5] = 100.0;
+        g.l[6] = 80.0;
 
-        delta1 = -1.0;
-        delta2 = -1.0;
-        delta5 = -1.0;
+        g.d = 50.0;
+        g.e = 200.0;
 
         //radians
-        SetPsi(10*3.14/180);
-        SetTheta(30*3.14/180);
+        g.psi = 10*3.14/180;
+        g.theta = 30*3.14/180;
+
+        g.delta1 = -1.0;
+        g.delta2 = -1.0;
+        g.delta5 = -1.0;
+        return g;
+    }
+
+    explicit KinematicPoints()
+    {
+        geo = DefaultGeometry();
 
         toolPoint = QVector3D(400, 200, 300);
         lastValidPoint = toolPoint;
-        CalculateMachineCoordinates(toolPoint);;
+        CalculateMachineCoordinates(toolPoint);
     }
 
+    Geometry GetGeometry() const { return geo; }
 
+    // Settings transaction: commit the new geometry only if the robot's
+    // current tool point stays reachable under it. On rejection nothing
+    // changes and no fault is raised — the robot never entered an invalid
+    // configuration. On success emits geometryChanged (so the path can be
+    // revalidated) and statusOK (so the views repaint the new pose).
+    bool TrySetGeometry(const Geometry &g);
 
 private:
     Q_OBJECT
@@ -50,18 +75,16 @@ private:
         bool valid = false;
     };
 
-    IkSolution Solve(QVector3D toolPoint) const;
+    IkSolution Solve(QVector3D toolPoint, const Geometry &g) const;
     void Commit(QVector3D toolPoint, const IkSolution &sol);
 
     void SetJointPoints();
     void SetCalculatedJointPoints();
 
-    double l[7], d, e;
-    double psi, theta;
-    double delta1, delta2, delta5;
+    Geometry geo;
     double a,b;
 
-    double s[6] = {}, c[6] = {}, ctheta, stheta, spsi, cpsi;
+    double s[6] = {}, c[6] = {};
     double fi[6] = {};
 
     double s23, c23, s234, c234;
@@ -73,17 +96,19 @@ private:
 public slots:
 
     /*SET*/
-    void SetL(int l, int n) {this->l[n] = l;}
+    // direct setters bypass the Settings transaction; the UI goes through
+    // TrySetGeometry instead
+    void SetL(int l, int n) {this->geo.l[n] = l;}
 
-    void SetD(double dd){this->d = dd;}
-    void SetE(double ee){this->e= ee;}
+    void SetD(double dd){this->geo.d = dd;}
+    void SetE(double ee){this->geo.e = ee;}
 
-    void SetPsi(double p){this->psi = p; this->cpsi = qCos(psi); this->spsi = qSin(psi);}
-    void SetTheta(double t){this->theta = t; this->ctheta = qCos(theta); this->stheta = qSin(theta);}
+    void SetPsi(double p){this->geo.psi = p;}
+    void SetTheta(double t){this->geo.theta = t;}
 
-    void SetDelta1(double d){this->delta1 =d;}
-    void SetDelta2(double d){this->delta2 =d;}
-    void SetDelta5(double d){this->delta5 =d;}
+    void SetDelta1(double d){this->geo.delta1 = d;}
+    void SetDelta2(double d){this->geo.delta2 = d;}
+    void SetDelta5(double d){this->geo.delta5 = d;}
 
     void SetToolPoint(QVector3D p) {this->toolPoint = p;}
 
@@ -91,7 +116,7 @@ public slots:
 
     // side-effect-free reachability query: no state change, no signals.
     // Runtime failures during a simulation still go through outOfRange.
-    bool CanReach(QVector3D p) const { return Solve(p).valid; }
+    bool CanReach(QVector3D p) const { return Solve(p, geo).valid; }
 
     void Initialize()
     {
@@ -103,7 +128,7 @@ public slots:
     int GetL(int n)
     {
         if(n<0 || n>6) return -1;
-        return this->l[n];
+        return this->geo.l[n];
     }
 
     double GetFi(int n)
@@ -122,15 +147,15 @@ public slots:
         return this->c[n];
     }
 
-    double GetD() {return this->d;}
-    double GetE() {return this->e;}
+    double GetD() {return this->geo.d;}
+    double GetE() {return this->geo.e;}
 
-    double GetPsi() {return this->psi;}
-    double GetTheta() {return this->theta;}
+    double GetPsi() {return this->geo.psi;}
+    double GetTheta() {return this->geo.theta;}
 
-    double GetDelta1() {return this->delta1;}
-    double GetDelta2() {return this->delta2;}
-    double GetDelta5() {return this->delta5;}
+    double GetDelta1() {return this->geo.delta1;}
+    double GetDelta2() {return this->geo.delta2;}
+    double GetDelta5() {return this->geo.delta5;}
 
     QList <QVector3D> GetJointPoints()
     {
@@ -168,6 +193,7 @@ public slots:
 signals:
     void statusOK();
     void outOfRange();
+    void geometryChanged();
 
 };
 

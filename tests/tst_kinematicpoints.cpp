@@ -23,6 +23,8 @@ private slots:
     void initializeAlwaysEmitsStatusOK();
     void getLBoundsChecked();
     void canReachIsSideEffectFree();
+    void rejectedGeometryChangesNothing();
+    void acceptedGeometryRecomputesPose();
     void restoreCustomSettingsResetsGeometry();
 };
 
@@ -182,6 +184,52 @@ void TestKinematicPoints::canReachIsSideEffectFree()
     QCOMPARE(kp.GetLastValidPoint(), pose);
     QCOMPARE(kp.GetToolPoint(), pose);
     QCOMPARE(kp.GetJointPoints(), joints);
+}
+
+// Settings changes are transactional: a geometry under which the robot's
+// current position is unreachable is rejected outright — no state change,
+// no fault. "Return to the last valid point" is not an option here:
+// lastValidPoint is only valid relative to the old geometry.
+void TestKinematicPoints::rejectedGeometryChangesNothing()
+{
+    KinematicPoints kp;
+    QSignalSpy okSpy(&kp, SIGNAL(statusOK()));
+    QSignalSpy errSpy(&kp, SIGNAL(outOfRange()));
+    QSignalSpy geoSpy(&kp, SIGNAL(geometryChanged()));
+
+    KinematicPoints::Geometry g = kp.GetGeometry();
+    g.l[3] = 350; // too short to reach the current pose
+
+    QCOMPARE(kp.TrySetGeometry(g), false);
+
+    QCOMPARE(kp.GetL(3), 550);
+    QCOMPARE(kp.GetToolPoint(), QVector3D(400, 200, 300));
+    QCOMPARE(okSpy.count(), 0);
+    QCOMPARE(errSpy.count(), 0);
+    QCOMPARE(geoSpy.count(), 0);
+}
+
+void TestKinematicPoints::acceptedGeometryRecomputesPose()
+{
+    KinematicPoints kp;
+    QSignalSpy okSpy(&kp, SIGNAL(statusOK()));
+    QSignalSpy errSpy(&kp, SIGNAL(outOfRange()));
+    QSignalSpy geoSpy(&kp, SIGNAL(geometryChanged()));
+
+    KinematicPoints::Geometry g = kp.GetGeometry();
+    g.l[3] = 450; // shorter arm, current pose still reachable
+
+    QCOMPARE(kp.TrySetGeometry(g), true);
+
+    QCOMPARE(kp.GetL(3), 450);
+    QCOMPARE(kp.GetToolPoint(), QVector3D(400, 200, 300)); // pose unchanged
+    QCOMPARE(geoSpy.count(), 1);
+    QCOMPARE(okSpy.count(), 1); // views must repaint the new joint layout
+    QCOMPARE(errSpy.count(), 0);
+
+    // the recomputed solution is consistent under the new geometry
+    QVector3D toolCalc = kp.GetCalculatedJointPoints().last();
+    QVERIFY((toolCalc - QVector3D(400, 200, 300)).length() < 0.5);
 }
 
 void TestKinematicPoints::getLBoundsChecked()
