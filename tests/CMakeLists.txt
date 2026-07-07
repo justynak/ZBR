@@ -18,11 +18,26 @@ target_include_directories(tst_trajectorypoints PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(tst_trajectorypoints PRIVATE Qt5::Gui Qt5::Test)
 add_test(NAME trajectorypoints COMMAND tst_trajectorypoints)
 
+add_executable(tst_simulationcontroller
+    tst_simulationcontroller.cpp
+    ${CMAKE_SOURCE_DIR}/simulationcontroller.cpp
+    ${CMAKE_SOURCE_DIR}/simulationcontroller.h
+    ${CMAKE_SOURCE_DIR}/kinematicpoints.cpp
+    ${CMAKE_SOURCE_DIR}/kinematicpoints.h
+    ${CMAKE_SOURCE_DIR}/trajectorypoints.cpp
+    ${CMAKE_SOURCE_DIR}/trajectorypoints.h
+)
+target_include_directories(tst_simulationcontroller PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(tst_simulationcontroller PRIVATE Qt5::Gui Qt5::Test)
+add_test(NAME simulationcontroller COMMAND tst_simulationcontroller)
+
 add_executable(tst_widgetanimation
     tst_widgetanimation.cpp
     ${CMAKE_SOURCE_DIR}/widgetanimation.cpp
     ${CMAKE_SOURCE_DIR}/widgetanimation.h
     ${CMAKE_SOURCE_DIR}/widgetanimation.ui
+    ${CMAKE_SOURCE_DIR}/simulationcontroller.cpp
+    ${CMAKE_SOURCE_DIR}/simulationcontroller.h
     ${CMAKE_SOURCE_DIR}/kinematicpoints.cpp
     ${CMAKE_SOURCE_DIR}/kinematicpoints.h
     ${CMAKE_SOURCE_DIR}/trajectorypoints.cpp

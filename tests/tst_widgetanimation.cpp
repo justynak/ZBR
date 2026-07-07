@@ -5,6 +5,7 @@
 #include "widgetanimation.h"
 #include "kinematicpoints.h"
 #include "trajectorypoints.h"
+#include "simulationcontroller.h"
 
 // Widget-level regression tests for the duplicated slot connections:
 // setupUi's connectSlotsByName already wires every on_<object>_<signal>
@@ -27,9 +28,11 @@ void TestWidgetAnimation::everyClickAddsExactlyOnePath()
 {
     KinematicPoints kp;
     TrajectoryPoints tp(kp.GetToolPoint());
+    SimulationController ctrl(&kp, &tp);
     WidgetAnimation wa;
     wa.SetKinematicPoints(&kp);
     wa.SetTrajectoryPoints(&tp);
+    wa.SetController(&ctrl);
 
     wa.findChild<QLineEdit*>("lineEditStopX")->setText("500");
     wa.findChild<QLineEdit*>("lineEditStopY")->setText("200");
@@ -52,9 +55,11 @@ void TestWidgetAnimation::stepButtonAdvancesExactlyOnePoint()
 {
     KinematicPoints kp;
     TrajectoryPoints tp(kp.GetToolPoint());
+    SimulationController ctrl(&kp, &tp);
     WidgetAnimation wa;
     wa.SetKinematicPoints(&kp);
     wa.SetTrajectoryPoints(&tp);
+    wa.SetController(&ctrl);
 
     // straight reachable line from the default TCP
     tp.GenerateLine(QVector3D(500, 200, 300), 4);

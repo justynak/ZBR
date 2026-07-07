@@ -45,8 +45,8 @@ private:
     double delta1, delta2, delta5;
     double a,b;
 
-    double s[6], c[6], ctheta, stheta, spsi, cpsi;
-    double fi[6];
+    double s[6] = {}, c[6] = {}, ctheta, stheta, spsi, cpsi;
+    double fi[6] = {};
 
     double s23, c23, s234, c234;
     QVector3D joint01Point,joint01prPoint, joint02Point, joint02prPoint, regionalPoint, transitionalPoint, toolPoint;
