@@ -23,6 +23,9 @@ private slots:
     void newPathAfterClearStartsFromRobotPose();
     void outOfRangeLatchesUntilReset();
     void faultCanFireFromIdle();
+    void unreachablePathIsTrimmedAtAddTime();
+    void reachablePathIsNotTrimmed();
+    void trimmedPathRunsWithoutFault();
 };
 
 void TestSimulationController::startWithoutPathIsIgnored()
@@ -220,6 +223,64 @@ void TestSimulationController::faultCanFireFromIdle()
     kp.CalculateMachineCoordinates(QVector3D(5000, 5000, 5000));
 
     QCOMPARE(ctrl.GetState(), SimulationController::OutOfRange);
+}
+
+// Paths are validated when added, not discovered bad mid-drive: the
+// unreachable tail is cut at the last reachable point and pathTrimmed
+// carries that point for the UI. Not a fault — the robot never moved.
+void TestSimulationController::unreachablePathIsTrimmedAtAddTime()
+{
+    KinematicPoints kp;
+    TrajectoryPoints tp(kp.GetToolPoint());
+    SimulationController ctrl(&kp, &tp);
+    QSignalSpy trimmed(&ctrl, SIGNAL(pathTrimmed(QVector3D)));
+
+    QCOMPARE(ctrl.AddLinePath(QVector3D(5000, 5000, 5000), 10), true);
+
+    QCOMPARE(trimmed.count(), 1);
+    QVERIFY(tp.pointsNumber() > 0);
+    QVERIFY(tp.pointsNumber() < 11);
+    QCOMPARE(ctrl.GetState(), SimulationController::Idle); // not a fault
+
+    // the signal carries the new path end, and every survivor is reachable
+    QCOMPARE(trimmed.first().first().value<QVector3D>(), tp[tp.pointsNumber()-1]);
+    for(int i = 0; i < tp.pointsNumber(); ++i)
+        QVERIFY(kp.CanReach(tp[i]));
+}
+
+void TestSimulationController::reachablePathIsNotTrimmed()
+{
+    KinematicPoints kp;
+    TrajectoryPoints tp(kp.GetToolPoint());
+    SimulationController ctrl(&kp, &tp);
+    QSignalSpy trimmed(&ctrl, SIGNAL(pathTrimmed(QVector3D)));
+
+    // radius-70 circle from the line's end at (500,200,300): stays well
+    // clear of the base column exclusion zone
+    ctrl.AddLinePath(QVector3D(500, 200, 300), 4);
+    ctrl.AddCurvePath(QVector3D(450, 250, 300), 360.0, 0.0, 36);
+
+    QCOMPARE(trimmed.count(), 0);
+}
+
+// The payoff: the old default circle always faulted mid-run; the same
+// input is now trimmed at add time and what remains runs to completion.
+void TestSimulationController::trimmedPathRunsWithoutFault()
+{
+    KinematicPoints kp;
+    TrajectoryPoints tp(kp.GetToolPoint());
+    SimulationController ctrl(&kp, &tp);
+    QSignalSpy states(&ctrl, SIGNAL(stateChanged(int)));
+
+    ctrl.AddCurvePath(QVector3D(200, 200, 200), 360.0, 0.0, 36); // 12/37 unreachable
+    QVERIFY(tp.pointsNumber() < 37);
+
+    ctrl.SetInterval(0);
+    ctrl.Start();
+    QTRY_COMPARE(ctrl.GetState(), SimulationController::Idle);
+
+    for(int i = 0; i < states.count(); ++i)
+        QVERIFY(states.at(i).first().toInt() != SimulationController::OutOfRange);
 }
 
 QTEST_GUILESS_MAIN(TestSimulationController)

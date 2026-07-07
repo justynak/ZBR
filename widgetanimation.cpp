@@ -76,6 +76,17 @@ void WidgetAnimation::OnProgressChanged(int percent)
     ui->progressBar->setValue(percent);
 }
 
+void WidgetAnimation::OnPathTrimmed(QVector3D lastReachable)
+{
+    // non-modal so it never blocks the simulation (or a test)
+    QMessageBox *box = new QMessageBox(QMessageBox::Warning, tr("Path trimmed"),
+        tr("The full path is not reachable.\nIt was trimmed to (%1, %2, %3).")
+            .arg(lastReachable.x()).arg(lastReachable.y()).arg(lastReachable.z()),
+        QMessageBox::Ok, this);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    box->show();
+}
+
 void WidgetAnimation::PaintJoints()
 {
     QPen pen(Qt::black);
