@@ -144,7 +144,10 @@ void KinematicPoints::CalculateMachineCoordinates(QVector3D toolPoint)
     SetJointPoints();
     SetCalculatedJointPoints();
 
-   for(int i=0; i<5; ++i)
+   // joint angles are fi[1..5]; index 0 is unused. The original loop read
+   // uninitialized s[0]/c[0] (random faults from stack garbage) and never
+   // validated fi[5], the wrist angle
+   for(int i=1; i<=5; ++i)
    {
       fi[i] = c[i]>s[i]? qAsin(s[i]) : qAcos(c[i]);
       if(fi[i]!=fi[i])
