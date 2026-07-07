@@ -20,7 +20,12 @@ void SimulationController::Start()
 {
     if(state != Idle || trajectory->pointsNumber() == 0) return;
     EnterState(Running);
-    timer.start();
+    // advance synchronously: the user gets progress feedback on the click
+    // itself, and a path that faults right away shows the fault right away
+    // instead of after a silent first interval
+    AdvanceOnePoint();
+    if(state == Running)
+        timer.start();
 }
 
 void SimulationController::Stop()
