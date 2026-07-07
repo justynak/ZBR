@@ -5,109 +5,84 @@
 #include <QDebug>
 
 
-
-/*CALCULATIONS*/
-void KinematicPoints::SetRegionalPoint()
+// Pure inverse kinematics: computes the full solution for a candidate
+// tool point from the current geometry, without touching the committed
+// robot state and without emitting signals. An unreachable point shows
+// up as NaN joint angles (negative values under the square roots).
+KinematicPoints::IkSolution KinematicPoints::Solve(QVector3D tool) const
 {
-    double rx = transitionalPoint.x() - l[4] * c[1] * c234;
-    double ry = transitionalPoint.y() - l[4] * s[1] * c234;
-    double rz = transitionalPoint.z() - l[4] * s234;
+    IkSolution r;
 
-    this->regionalPoint = QVector3D(rx, ry, rz);
+    // transitional point: tool minus the tool/wrist segment
+    double px = tool.x() - (l[5] + l[6]) * ctheta * cpsi;
+    double py = tool.y() - (l[5] + l[6]) * ctheta * spsi;
+    double pz = tool.z() - (l[5] + l[6]) * stheta;
+    r.transitionalPoint = QVector3D(px, py, pz);
+
+    r.s[1] = 1/(qPow(px,2) + qPow(py,2)) * (e*px + delta1 * py * qSqrt(qPow(px,2) + qPow(py,2) - qPow(e,2)));
+    r.c[1] = 1/(qPow(px,2) + qPow(py,2)) * (e*py*(-1.0) + delta1 * px * qSqrt(qPow(px,2) + qPow(py,2) - qPow(e,2)));
+
+    r.s[5] = ctheta * (spsi * r.c[1] - cpsi * r.s[1]);
+    r.c[5] = delta5 * qSqrt(1 - qPow(r.s[5], 2));
+
+    r.s234 = stheta / r.c[5];
+    r.c234 = ctheta / r.c[5] * (cpsi * r.c[1] + spsi * r.s[1]);
+
+    r.regionalPoint = QVector3D(px - l[4] * r.c[1] * r.c234,
+                                py - l[4] * r.s[1] * r.c234,
+                                pz - l[4] * r.s234);
+
+    double xr = r.regionalPoint.x();
+    double yr = r.regionalPoint.y();
+    double zr = r.regionalPoint.z();
+
+    r.a = (-1.0)*l[1] + delta1 * qSqrt(qPow(xr, 2) + qPow(yr, 2) - qPow(e, 2));
+    r.b = 0.5/l[2] * (qPow(r.a, 2) + qPow(zr, 2) + qPow(l[2], 2) - qPow(l[3], 2));
+
+    r.s[2] = 1/(qPow(r.a, 2) + qPow(zr,2)) * (zr * r.b + delta2 * r.a * qSqrt(qPow(r.a, 2) + qPow(zr,2) - qPow(r.b,2)));
+    r.c[2] = 1/(qPow(r.a, 2) + qPow(zr,2)) * (r.a * r.b - delta2 * zr * qSqrt(qPow(r.a, 2) + qPow(zr,2) - qPow(r.b,2)));
+
+    r.s[3] = 1/l[3] * (zr*r.c[2] - r.a*r.s[2]);
+    r.c[3] = 1/l[3] * (r.a*r.c[2] + zr*r.s[2] - l[2]);
+
+    r.s23 = 1/l[3] * (zr - l[2]*r.s[2]);
+    r.c23 = 1/l[3] * (r.a - l[2]*r.c[2]);
+
+    r.s[4] = r.s234 * r.c23 - r.c234 * r.s23;
+    r.c[4] = r.c234 * r.c23 + r.s234 * r.s23;
+
+    // joint angles are fi[1..5]; index 0 is unused
+    r.valid = true;
+    for(int i=1; i<=5; ++i)
+    {
+        r.fi[i] = r.c[i] > r.s[i] ? qAsin(r.s[i]) : qAcos(r.c[i]);
+        if(r.fi[i] != r.fi[i]) r.valid = false;
+    }
+
+    return r;
 }
 
-void KinematicPoints::SetTransitionalPoint()
+void KinematicPoints::Commit(QVector3D tool, const IkSolution &sol)
 {
-    double px = toolPoint.x() - (l[5] + l[6]) * ctheta * cpsi ;
-    double py = toolPoint.y() - (l[5] + l[6]) * ctheta * spsi ;
-    double pz = toolPoint.z() - (l[5] + l[6]) * stheta ;
+    toolPoint = tool;
+    transitionalPoint = sol.transitionalPoint;
+    regionalPoint = sol.regionalPoint;
 
-    this->transitionalPoint = QVector3D(px, py, pz);
-}
+    for(int i=0; i<6; ++i)
+    {
+        s[i] = sol.s[i];
+        c[i] = sol.c[i];
+        fi[i] = sol.fi[i];
+    }
+    s23 = sol.s23;
+    c23 = sol.c23;
+    s234 = sol.s234;
+    c234 = sol.c234;
+    a = sol.a;
+    b = sol.b;
 
-
-//angles
-void KinematicPoints::SetS1C1()
-{
-    double px = this->transitionalPoint.x();
-    double py = this->transitionalPoint.y();
-
-    s[1] = 1/( qPow(px,2) + qPow(py,2) ) * (e*px + delta1 * py * qSqrt(qPow(px,2) + qPow(py,2) - qPow(e,2)) );
-    c[1] = 1/( qPow(px,2) + qPow(py,2) ) * (e*py*(-1.0) + delta1 * px * (qSqrt(qPow(px,2) + qPow(py,2) - qPow(e,2))));
-
-    //if(fi[1]!=fi[1]) {emit outOfRange(); return;}
-}
-
-void KinematicPoints::SetS2C2()
-{
-    double zr = regionalPoint.z();
-
-    s[2] = 1/(qPow(a, 2) + qPow(zr,2)) * (zr * b + delta2 * a * qSqrt(qPow(a, 2) + qPow(zr,2) - qPow(b,2)));
-    c[2] = 1/(qPow(a, 2) + qPow(zr,2)) * (a * b - delta2 * zr * qSqrt(qPow(a, 2) + qPow(zr,2) - qPow(b,2)) );
-    fi[2] = qFabs(c[2])>qFabs(s[2])? qAsin(s[2]) : qAcos(c[2]);
-
-    //if(fi[2]!=fi[2]) {emit outOfRange(); return;}
-
-}
-
-void KinematicPoints::SetS3C3()
-{
-    double zr = regionalPoint.z();
-
-   s[3] = 1/l[3] * ( zr*c[2] - a*s[2] );
-   c[3] = 1/l[3]* (a*c[2]+zr*s[2] - l[2]) ;
-   fi[3] = qFabs(c[3])>qFabs(s[3])? qAsin(s[3]) : qAcos(c[3]);
-
-   //if(fi[3]!=fi[3]) {emit outOfRange(); return;}
-
-}
-
-void KinematicPoints::SetS4C4()
-{
-    s[4] = s234 * c23 - c234 * s23;
-    c[4] = c234*c23 + s234*s23;
-    fi[4] = qFabs(c[4])>qFabs(s[4])? qAsin(s[4]) : qAcos(c[4]);
-    //if(fi[4]!=fi[4]) {emit outOfRange(); return;}
-
-}
-
-void KinematicPoints::SetS5C5()
-{
-    s[5] = ctheta * (spsi * c[1] - cpsi * s[1]);
-    c[5] = delta5 * qSqrt(1 - qPow(s[5], 2));
-    fi[5] = qFabs(c[5])>qFabs(s[5])? qAsin(s[5]) : qAcos(c[5]);
-    //if(fi[5]!=fi[5]) {emit outOfRange(); return;}
-
-}
-
-void KinematicPoints::SetS23C23()
-{
-    double zr = regionalPoint.z();
-    s23 = 1/l[3] *(zr - l[2]*s[2]);
-    c23 = 1/l[3] * (a - l[2]*c[2]);
-
-}
-
-void KinematicPoints::SetS234C234()
-{
-
-        s234= stheta / c[5];
-        c234= ctheta / c[5]* (cpsi*c[1] +spsi*s[1]);
-}
-
-void KinematicPoints::SetAngles()
-{
-
-}
-
-void KinematicPoints::SetAB()
-{
-    double xr = regionalPoint.x();
-    double yr = regionalPoint.y();
-    double zr = regionalPoint.z();
-
-    a = (-1.0)*l[1] + delta1* qSqrt(qPow(xr, 2) + qPow(yr, 2) - qPow(e, 2));
-    b = 0.5/l[2] * (qPow(a, 2) + qPow(zr, 2) + qPow(l[2], 2) - qPow(l[3], 2));
+    SetJointPoints();
+    SetCalculatedJointPoints();
 }
 
 //calculate points
@@ -130,48 +105,29 @@ void KinematicPoints::SetCalculatedJointPoints()
 
 void KinematicPoints::CalculateMachineCoordinates(QVector3D toolPoint)
 {
-    SetToolPoint(toolPoint);
-    SetTransitionalPoint();
-    SetS1C1();
-    SetS5C5();
-    SetS234C234();
-    SetRegionalPoint();
-    SetAB();
-    SetS2C2();
-    SetS3C3();
-    SetS23C23();
-    SetS4C4();
-    SetJointPoints();
-    SetCalculatedJointPoints();
+    IkSolution sol = Solve(toolPoint);
 
-   // joint angles are fi[1..5]; index 0 is unused. The original loop read
-   // uninitialized s[0]/c[0] (random faults from stack garbage) and never
-   // validated fi[5], the wrist angle
-   for(int i=1; i<=5; ++i)
-   {
-      fi[i] = c[i]>s[i]? qAsin(s[i]) : qAcos(c[i]);
-      if(fi[i]!=fi[i])
-      {
-         // the candidate point is unreachable: restore the pose at
-         // lastValidPoint so the robot never moves to an invalid state;
-         // the guard stops infinite recursion if that point fails too
-         // (possible after a geometry change from Settings)
-         if(!handlingOutOfRange)
-         {
-             handlingOutOfRange = true;
-             CalculateMachineCoordinates(lastValidPoint);
-             emit outOfRange();
-             handlingOutOfRange = false;
-         }
-         return;
-      }
-   }
+    // validate, then commit: a rejected candidate never touches the
+    // robot's state, so the pose always stays at lastValidPoint
+    if(!sol.valid)
+    {
+        // the guard stops infinite recursion if an outOfRange handler
+        // re-enters with another unreachable point
+        if(!handlingOutOfRange)
+        {
+            handlingOutOfRange = true;
+            emit outOfRange();
+            handlingOutOfRange = false;
+        }
+        return;
+    }
+
+    Commit(toolPoint, sol);
 
     if(lastValidPoint != toolPoint)
         emit statusOK();
 
     lastValidPoint = toolPoint;
-
 }
 
 void KinematicPoints::RestoreCustomSettings()

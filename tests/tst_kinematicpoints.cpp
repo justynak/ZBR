@@ -22,6 +22,7 @@ private slots:
     void statusOKNotEmittedForSamePoint();
     void initializeAlwaysEmitsStatusOK();
     void getLBoundsChecked();
+    void canReachIsSideEffectFree();
     void restoreCustomSettingsResetsGeometry();
 };
 
@@ -156,6 +157,31 @@ void TestKinematicPoints::initializeAlwaysEmitsStatusOK()
     kp.Initialize();
 
     QCOMPARE(okSpy.count(), 1);
+}
+
+// CanReach is a query, not a command: no signals fire during the check
+// and the committed state — including lastValidPoint — stays untouched.
+// (The naive implementation, "run CalculateMachineCoordinates and restore
+// afterwards", would latch a fault in every connected observer and
+// overwrite lastValidPoint.)
+void TestKinematicPoints::canReachIsSideEffectFree()
+{
+    KinematicPoints kp;
+    QVector3D pose(420, 210, 310);
+    kp.CalculateMachineCoordinates(pose);
+
+    QSignalSpy okSpy(&kp, SIGNAL(statusOK()));
+    QSignalSpy errSpy(&kp, SIGNAL(outOfRange()));
+    QList<QVector3D> joints = kp.GetJointPoints();
+
+    QCOMPARE(kp.CanReach(QVector3D(5000, 5000, 5000)), false);
+    QCOMPARE(kp.CanReach(QVector3D(350, 150, 250)), true);
+
+    QCOMPARE(okSpy.count(), 0);
+    QCOMPARE(errSpy.count(), 0);
+    QCOMPARE(kp.GetLastValidPoint(), pose);
+    QCOMPARE(kp.GetToolPoint(), pose);
+    QCOMPARE(kp.GetJointPoints(), joints);
 }
 
 void TestKinematicPoints::getLBoundsChecked()

@@ -51,6 +51,9 @@ signals:
     void stateChanged(int state);
     void progressChanged(int percent);
     void pathChanged();
+    // a newly added path reached outside the workspace and was cut at the
+    // last reachable point; informational, not a fault
+    void pathTrimmed(QVector3D lastReachable);
 
 private slots:
     void Tick();
@@ -60,6 +63,7 @@ private:
     void AdvanceOnePoint();
     void DropPath();
     void EnterState(State s);
+    void ValidateNewPoints(int from);
 
     KinematicPoints *kinematics;
     TrajectoryPoints *trajectory;

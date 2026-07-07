@@ -34,6 +34,7 @@ public:
         connect(controller, SIGNAL(stateChanged(int)), this, SLOT(OnStateChanged(int)));
         connect(controller, SIGNAL(progressChanged(int)), this, SLOT(OnProgressChanged(int)));
         connect(controller, SIGNAL(pathChanged()), this, SLOT(PaintJoints()));
+        connect(controller, SIGNAL(pathTrimmed(QVector3D)), this, SLOT(OnPathTrimmed(QVector3D)));
     }
 
     void PaintGrid(double scale);
@@ -59,6 +60,7 @@ public slots:
       void PaintPath();
       void OnStateChanged(int state);
       void OnProgressChanged(int percent);
+      void OnPathTrimmed(QVector3D lastReachable);
 
 private slots:
       void on_buttonClear_clicked();

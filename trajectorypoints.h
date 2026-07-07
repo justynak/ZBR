@@ -55,6 +55,16 @@ public slots:
     }
     void RemovePoint() {points.removeFirst();}
 
+    // drop everything from index count on (used when the tail of a
+    // generated path is unreachable); the spherical chain state no longer
+    // matches the new end, so the next curve re-derives from Cartesian
+    void Truncate(int count)
+    {
+        while(points.size() > count)
+            points.removeLast();
+        chainValid = false;
+    }
+
 
 };
 

@@ -102,15 +102,36 @@ void SimulationController::Reset()
 bool SimulationController::AddLinePath(QVector3D stop, int n)
 {
     if(state == OutOfRange) return false;
+    int before = trajectory->pointsNumber();
     trajectory->GenerateLine(stop, n);
+    ValidateNewPoints(before);
     return true;
 }
 
 bool SimulationController::AddCurvePath(QVector3D center, double fi, double theta, int n)
 {
     if(state == OutOfRange) return false;
+    int before = trajectory->pointsNumber();
     trajectory->GenerateCurve(center, fi, theta, n);
+    ValidateNewPoints(before);
     return true;
+}
+
+// validate at add time, so the robot never has to discover a bad path
+// by driving into it; runtime faults (e.g. geometry changed after the
+// path was added) still go through the OutOfRange state
+void SimulationController::ValidateNewPoints(int from)
+{
+    for(int i = from; i < trajectory->pointsNumber(); ++i)
+    {
+        if(!kinematics->CanReach((*trajectory)[i]))
+        {
+            trajectory->Truncate(i);
+            emit pathTrimmed(i > 0 ? (*trajectory)[i-1] : kinematics->GetLastValidPoint());
+            emit pathChanged();
+            return;
+        }
+    }
 }
 
 void SimulationController::DropPath()
