@@ -40,6 +40,22 @@ public:
 private:
     Q_OBJECT
 
+    // one full inverse-kinematics solution for a candidate tool point,
+    // computed by Solve() without touching the committed robot state
+    struct IkSolution
+    {
+        double s[6] = {}, c[6] = {}, fi[6] = {};
+        double s23, c23, s234, c234, a, b;
+        QVector3D transitionalPoint, regionalPoint;
+        bool valid = false;
+    };
+
+    IkSolution Solve(QVector3D toolPoint) const;
+    void Commit(QVector3D toolPoint, const IkSolution &sol);
+
+    void SetJointPoints();
+    void SetCalculatedJointPoints();
+
     double l[7], d, e;
     double psi, theta;
     double delta1, delta2, delta5;
@@ -52,7 +68,6 @@ private:
     QVector3D joint01Point,joint01prPoint, joint02Point, joint02prPoint, regionalPoint, transitionalPoint, toolPoint;
     QVector3D toolPointCalculated, transitionalPointCalculated, regionalPointCalculated;
     QVector3D lastValidPoint;
-    bool valid;
     bool handlingOutOfRange = false;
 
 public slots:
@@ -72,26 +87,11 @@ public slots:
 
     void SetToolPoint(QVector3D p) {this->toolPoint = p;}
 
-    //calculations
-    void SetRegionalPoint();
-    void SetTransitionalPoint();
-
-    void SetS1C1();
-    void SetS2C2();
-    void SetS3C3();
-    void SetS4C4();
-    void SetS5C5();
-
-    void SetS23C23();
-    void SetS234C234();
-
-    void SetAB();
-    void SetAngles();
-
-    void SetJointPoints();
-    void SetCalculatedJointPoints();
-
     void CalculateMachineCoordinates(QVector3D toolPoint);
+
+    // side-effect-free reachability query: no state change, no signals.
+    // Runtime failures during a simulation still go through outOfRange.
+    bool CanReach(QVector3D p) const { return Solve(p).valid; }
 
     void Initialize()
     {
