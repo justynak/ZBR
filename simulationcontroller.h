@@ -64,6 +64,7 @@ private:
     void DropPath();
     void EnterState(State s);
     void ValidateNewPoints(int from);
+    QVector3D FindBoundary(QVector3D reachable, QVector3D unreachable) const;
 
     KinematicPoints *kinematics;
     TrajectoryPoints *trajectory;

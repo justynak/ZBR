@@ -65,6 +65,8 @@ public slots:
         chainValid = false;
     }
 
+    void Append(QVector3D p) { points.append(p); }
+
 
 };
 

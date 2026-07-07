@@ -235,17 +235,32 @@ void TestSimulationController::unreachablePathIsTrimmedAtAddTime()
     SimulationController ctrl(&kp, &tp);
     QSignalSpy trimmed(&ctrl, SIGNAL(pathTrimmed(QVector3D)));
 
+    QVector3D start = kp.GetToolPoint();
     QCOMPARE(ctrl.AddLinePath(QVector3D(5000, 5000, 5000), 10), true);
 
     QCOMPARE(trimmed.count(), 1);
-    QVERIFY(tp.pointsNumber() > 0);
+    QVERIFY(tp.pointsNumber() >= 2); // seed + refined boundary point
     QVERIFY(tp.pointsNumber() < 11);
     QCOMPARE(ctrl.GetState(), SimulationController::Idle); // not a fault
 
     // the signal carries the new path end, and every survivor is reachable
-    QCOMPARE(trimmed.first().first().value<QVector3D>(), tp[tp.pointsNumber()-1]);
+    QVector3D end = tp[tp.pointsNumber()-1];
+    QCOMPARE(trimmed.first().first().value<QVector3D>(), end);
     for(int i = 0; i < tp.pointsNumber(); ++i)
         QVERIFY(kp.CanReach(tp[i]));
+
+    // the trim is refined to the workspace boundary, not to the last
+    // coarse sample (which here would be the robot's own position):
+    // the robot gets real travel, and a step further is out of range
+    QVERIFY((end - start).length() > 10.0f);
+    QVector3D dir = (QVector3D(5000, 5000, 5000) - start).normalized();
+    QVERIFY(!kp.CanReach(end + dir * 5.0f));
+
+    // and the robot actually walks to the boundary
+    ctrl.SetInterval(0);
+    ctrl.Start();
+    QTRY_COMPARE(ctrl.GetState(), SimulationController::Idle);
+    QCOMPARE(kp.GetToolPoint(), end);
 }
 
 void TestSimulationController::reachablePathIsNotTrimmed()

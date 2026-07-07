@@ -126,12 +126,37 @@ void SimulationController::ValidateNewPoints(int from)
     {
         if(!kinematics->CanReach((*trajectory)[i]))
         {
+            // refine to the actual workspace boundary instead of cutting at
+            // the last sample: with a coarse path discretization the last
+            // sample can be the robot's own position, leaving a path that
+            // goes nowhere
+            QVector3D lastOk = i > 0 ? (*trajectory)[i-1] : kinematics->GetLastValidPoint();
+            QVector3D boundary = FindBoundary(lastOk, (*trajectory)[i]);
+
             trajectory->Truncate(i);
-            emit pathTrimmed(i > 0 ? (*trajectory)[i-1] : kinematics->GetLastValidPoint());
+            if((boundary - lastOk).length() > 0.5f)
+                trajectory->Append(boundary);
+
+            emit pathTrimmed((*trajectory)[trajectory->pointsNumber() - 1]);
             emit pathChanged();
             return;
         }
     }
+}
+
+// bisect along the executed segment (the chord the robot would actually
+// drive); CanReach is side-effect free, so probing is safe
+QVector3D SimulationController::FindBoundary(QVector3D reachable, QVector3D unreachable) const
+{
+    while((unreachable - reachable).length() > 0.5f)
+    {
+        QVector3D mid = (reachable + unreachable) * 0.5f;
+        if(kinematics->CanReach(mid))
+            reachable = mid;
+        else
+            unreachable = mid;
+    }
+    return reachable;
 }
 
 void SimulationController::DropPath()
