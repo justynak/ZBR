@@ -9,9 +9,14 @@
 // tool point from the current geometry, without touching the committed
 // robot state and without emitting signals. An unreachable point shows
 // up as NaN joint angles (negative values under the square roots).
-KinematicPoints::IkSolution KinematicPoints::Solve(QVector3D tool) const
+KinematicPoints::IkSolution KinematicPoints::Solve(QVector3D tool, const Geometry &g) const
 {
     IkSolution r;
+
+    const double *l = g.l;
+    double e = g.e, delta1 = g.delta1, delta2 = g.delta2, delta5 = g.delta5;
+    double cpsi = qCos(g.psi), spsi = qSin(g.psi);
+    double ctheta = qCos(g.theta), stheta = qSin(g.theta);
 
     // transitional point: tool minus the tool/wrist segment
     double px = tool.x() - (l[5] + l[6]) * ctheta * cpsi;
@@ -88,6 +93,9 @@ void KinematicPoints::Commit(QVector3D tool, const IkSolution &sol)
 //calculate points
 void KinematicPoints::SetJointPoints()
 {
+    const double *l = geo.l;
+    double d = geo.d, e = geo.e;
+
     joint01Point = QVector3D(l[1]*c[1], l[1]*s[1], 0);
     joint01prPoint = QVector3D(joint01Point.x() + d*s[1], joint01Point.y() - d*c[1], 0);
     joint02prPoint = QVector3D(joint01prPoint.x()+l[2]*c[2]*c[1], joint01prPoint.y()+l[2]*c[2]*s[1], l[2]*s[2]);
@@ -97,6 +105,10 @@ void KinematicPoints::SetJointPoints()
 //check points
 void KinematicPoints::SetCalculatedJointPoints()
 {
+    const double *l = geo.l;
+    double cpsi = qCos(geo.psi), spsi = qSin(geo.psi);
+    double ctheta = qCos(geo.theta), stheta = qSin(geo.theta);
+
     regionalPointCalculated = QVector3D(joint02Point.x() + l[3]*c[1]*c23, joint02Point.y()+l[3]*s[1]*c23, joint02Point.z()+l[3]*s23);
     transitionalPointCalculated = QVector3D(regionalPointCalculated.x() + l[4]*c[1]*c234, regionalPointCalculated.y() + l[4]*s[1]*c234, regionalPointCalculated.z()+l[4]*s234);
     toolPointCalculated = QVector3D(transitionalPointCalculated.x() + (l[5]+l[6])*ctheta*cpsi, transitionalPointCalculated.y() + (l[5]+l[6])*ctheta*spsi, transitionalPointCalculated.z()+(l[5]+l[6])*stheta);
@@ -105,7 +117,7 @@ void KinematicPoints::SetCalculatedJointPoints()
 
 void KinematicPoints::CalculateMachineCoordinates(QVector3D toolPoint)
 {
-    IkSolution sol = Solve(toolPoint);
+    IkSolution sol = Solve(toolPoint, geo);
 
     // validate, then commit: a rejected candidate never touches the
     // robot's state, so the pose always stays at lastValidPoint
@@ -132,25 +144,23 @@ void KinematicPoints::CalculateMachineCoordinates(QVector3D toolPoint)
 
 void KinematicPoints::RestoreCustomSettings()
 {
-    l[1] = 250.0;
-    l[2] = 250.0;
-    l[3] = 550.0;
-    l[4] = 100.0;
-    l[5] = 100.0;
-    l[6] = 80.0;
-
-    d = 50.0;
-    e = 200.0;
-
-    delta1 = -1.0;
-    delta2 = -1.0;
-    delta5 = -1.0;
-
-    //radians
-    SetPsi(10*3.14/180);
-    SetTheta(30*3.14/180);
+    geo = DefaultGeometry();
 
     toolPoint = QVector3D(400, 200, 300);
     lastValidPoint = toolPoint;
     CalculateMachineCoordinates(toolPoint);
+    emit geometryChanged();
+}
+
+bool KinematicPoints::TrySetGeometry(const Geometry &g)
+{
+    IkSolution sol = Solve(toolPoint, g);
+    if(!sol.valid)
+        return false; // nothing committed, no fault: the change never happened
+
+    geo = g;
+    Commit(toolPoint, sol);
+    emit geometryChanged();
+    emit statusOK(); // same pose, new joint positions: force a repaint
+    return true;
 }

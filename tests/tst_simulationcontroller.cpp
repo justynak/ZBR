@@ -26,6 +26,8 @@ private slots:
     void unreachablePathIsTrimmedAtAddTime();
     void reachablePathIsNotTrimmed();
     void trimmedPathRunsWithoutFault();
+    void settingsChangeRetrimsExistingPath();
+    void rejectedSettingsChangeLeavesPathIntact();
 };
 
 void TestSimulationController::startWithoutPathIsIgnored()
@@ -281,6 +283,55 @@ void TestSimulationController::trimmedPathRunsWithoutFault()
 
     for(int i = 0; i < states.count(); ++i)
         QVERIFY(states.at(i).first().toInt() != SimulationController::OutOfRange);
+}
+
+// An accepted Settings change reshapes the workspace; the existing path
+// was validated under the old geometry, so the controller re-trims it —
+// same signal, same popup, and the remainder still runs without a fault.
+void TestSimulationController::settingsChangeRetrimsExistingPath()
+{
+    KinematicPoints kp;
+    TrajectoryPoints tp(kp.GetToolPoint());
+    SimulationController ctrl(&kp, &tp);
+    QSignalSpy trimmed(&ctrl, SIGNAL(pathTrimmed(QVector3D)));
+    QSignalSpy states(&ctrl, SIGNAL(stateChanged(int)));
+
+    ctrl.AddLinePath(QVector3D(500, 200, 300), 4);
+    QCOMPARE(trimmed.count(), 0); // fully reachable under default geometry
+
+    KinematicPoints::Geometry g = kp.GetGeometry();
+    g.l[3] = 450; // pose still reachable, (500,200,300) no longer is
+    QCOMPARE(kp.TrySetGeometry(g), true);
+
+    QCOMPARE(trimmed.count(), 1);
+    QVERIFY(tp.pointsNumber() > 0);
+    for(int i = 0; i < tp.pointsNumber(); ++i)
+        QVERIFY(kp.CanReach(tp[i]));
+
+    ctrl.SetInterval(0);
+    ctrl.Start();
+    QTRY_COMPARE(ctrl.GetState(), SimulationController::Idle);
+    for(int i = 0; i < states.count(); ++i)
+        QVERIFY(states.at(i).first().toInt() != SimulationController::OutOfRange);
+}
+
+void TestSimulationController::rejectedSettingsChangeLeavesPathIntact()
+{
+    KinematicPoints kp;
+    TrajectoryPoints tp(kp.GetToolPoint());
+    SimulationController ctrl(&kp, &tp);
+    QSignalSpy trimmed(&ctrl, SIGNAL(pathTrimmed(QVector3D)));
+
+    ctrl.AddLinePath(QVector3D(500, 200, 300), 4);
+    int points = tp.pointsNumber();
+
+    KinematicPoints::Geometry g = kp.GetGeometry();
+    g.l[3] = 350; // cannot reach the current pose: rejected
+    QCOMPARE(kp.TrySetGeometry(g), false);
+
+    QCOMPARE(tp.pointsNumber(), points);
+    QCOMPARE(trimmed.count(), 0);
+    QCOMPARE(ctrl.GetState(), SimulationController::Idle); // no fault
 }
 
 QTEST_GUILESS_MAIN(TestSimulationController)

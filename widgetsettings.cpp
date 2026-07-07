@@ -94,25 +94,36 @@ void WidgetSettings::UpdateCalculations()
 
 void WidgetSettings::UpdateParameters()
 {
-    jointPoints->SetL(ui->lineEditL1->text().toDouble(), 1);
-    jointPoints->SetL(ui->lineEditL2->text().toDouble(), 2);
-    jointPoints->SetL(ui->lineEditL3->text().toDouble(), 3);
-    jointPoints->SetL(ui->lineEditL4->text().toDouble(), 4);
-    jointPoints->SetL(ui->lineEditL5->text().toDouble(), 5);
-    jointPoints->SetL(ui->lineEditL6->text().toDouble(), 6);
+    KinematicPoints::Geometry g = jointPoints->GetGeometry();
 
-    jointPoints->SetD(ui->lineEditD->text().toDouble());
-    jointPoints->SetE(ui->lineEditE->text().toDouble());
+    g.l[1] = ui->lineEditL1->text().toDouble();
+    g.l[2] = ui->lineEditL2->text().toDouble();
+    g.l[3] = ui->lineEditL3->text().toDouble();
+    g.l[4] = ui->lineEditL4->text().toDouble();
+    g.l[5] = ui->lineEditL5->text().toDouble();
+    g.l[6] = ui->lineEditL6->text().toDouble();
 
-    jointPoints->SetPsi(ui->lineEditPsi->text().toDouble());
-    jointPoints->SetTheta(ui->lineEditTheta->text().toDouble());
+    g.d = ui->lineEditD->text().toDouble();
+    g.e = ui->lineEditE->text().toDouble();
 
-    jointPoints->SetDelta1(ui->lineEditD1->text().toDouble());
-    jointPoints->SetDelta2(ui->lineEditD2->text().toDouble());
-    jointPoints->SetDelta5(ui->lineEditD5->text().toDouble());
+    g.psi = ui->lineEditPsi->text().toDouble();
+    g.theta = ui->lineEditTheta->text().toDouble();
 
-    jointPoints->CalculateMachineCoordinates(jointPoints->GetToolPoint());
+    g.delta1 = ui->lineEditD1->text().toDouble();
+    g.delta2 = ui->lineEditD2->text().toDouble();
+    g.delta5 = ui->lineEditD5->text().toDouble();
 
+    // transactional: the change is rejected if the robot's current
+    // position would become unreachable under the new dimensions
+    if(!jointPoints->TrySetGeometry(g))
+    {
+        QMessageBox *box = new QMessageBox(QMessageBox::Warning, tr("Settings rejected"),
+            tr("The robot's current position is not reachable with these dimensions.\nThe previous settings were kept."),
+            QMessageBox::Ok, this);
+        box->setAttribute(Qt::WA_DeleteOnClose);
+        box->show();
+        UpdateCalculations(); // snap the fields back to the committed values
+    }
 }
 
 void WidgetSettings::OutOfRangeError()

@@ -7,6 +7,14 @@ SimulationController::SimulationController(KinematicPoints *kinematics, Trajecto
     // the fault can fire outside Running too, e.g. a Settings change that
     // makes the current pose unreachable
     connect(kinematics, SIGNAL(outOfRange()), this, SLOT(OnOutOfRange()));
+    // an accepted Settings change reshapes the workspace: the remaining
+    // path was validated under the old geometry and must be re-trimmed
+    connect(kinematics, SIGNAL(geometryChanged()), this, SLOT(OnGeometryChanged()));
+}
+
+void SimulationController::OnGeometryChanged()
+{
+    ValidateNewPoints(currentPoint);
 }
 
 void SimulationController::EnterState(State s)

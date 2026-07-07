@@ -58,6 +58,7 @@ signals:
 private slots:
     void Tick();
     void OnOutOfRange();
+    void OnGeometryChanged();
 
 private:
     void AdvanceOnePoint();
