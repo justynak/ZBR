@@ -5,16 +5,16 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    currentPoint=0;
     jointPoints = new KinematicPoints();
     trajectory = new TrajectoryPoints(jointPoints->GetToolPoint());
-
+    controller = new SimulationController(jointPoints, trajectory, this);
 
     ui->setupUi(this);
 
     animation = new WidgetAnimation();
     animation->SetTrajectoryPoints(trajectory);
     animation->SetKinematicPoints(jointPoints);
+    animation->SetController(controller);
 
     settings = new WidgetSettings();
     settings->SetKinematicPoints(jointPoints);

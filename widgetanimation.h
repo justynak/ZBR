@@ -8,6 +8,7 @@
 
 #include "trajectorypoints.h"
 #include "kinematicpoints.h"
+#include "simulationcontroller.h"
 
 namespace Ui {
     class WidgetAnimation;
@@ -22,13 +23,18 @@ public:
     explicit WidgetAnimation(QWidget *parent = 0);
     void SetKinematicPoints(KinematicPoints *p) {
         jointPoints = p;
-        connect(jointPoints, SIGNAL(outOfRange()), this, SLOT(OutOfRangeError()));
         connect(jointPoints, SIGNAL(statusOK()), this, SLOT(PaintJoints()));
-        connect(jointPoints, SIGNAL(statusOK()), this, SLOT(SetStatusValid()));
     }
     void SetTrajectoryPoints(TrajectoryPoints *p) {
         trajectory= p;
         connect(trajectory, SIGNAL(pathGenerated()), this, SLOT(PaintPath()));
+    }
+    void SetController(SimulationController *c) {
+        controller = c;
+        connect(controller, SIGNAL(stateChanged(int)), this, SLOT(OnStateChanged(int)));
+        connect(controller, SIGNAL(progressChanged(int)), this, SLOT(OnProgressChanged(int)));
+        connect(controller, SIGNAL(pathChanged()), this, SLOT(PaintJoints()));
+        connect(controller, SIGNAL(pathTrimmed(QVector3D)), this, SLOT(OnPathTrimmed(QVector3D)));
     }
 
     void PaintGrid(double scale);
@@ -36,35 +42,25 @@ public:
     ~WidgetAnimation();
 
 private:
+      int IntervalMs() const;
+
       Ui::WidgetAnimation * ui;
       QGraphicsScene* sceneXY;
       QGraphicsScene* sceneXZ;
       QGraphicsScene* sceneYZ;
-      QTimer *timer;
 
       KinematicPoints* jointPoints;
       TrajectoryPoints* trajectory;
-
-      int currentPoint;
-      bool finished;
-      bool pathChanged;
+      SimulationController* controller;
 
 signals:
-    
+
 public slots:
-      void StartSimuation();
-      void ClearPath();
-      void RemovePath();
-
-      void OutOfRangeError();
-      void GoToNextTrajectoryPoint();
-      void CreateLinearPath();
-      void CreateCurvePath();
       void PaintJoints();
-      void ChangeSpeed();
       void PaintPath();
-      void SetStatusValid();
-
+      void OnStateChanged(int state);
+      void OnProgressChanged(int percent);
+      void OnPathTrimmed(QVector3D lastReachable);
 
 private slots:
       void on_buttonClear_clicked();

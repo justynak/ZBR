@@ -10,6 +10,7 @@ INCLUDEPATH += .
 # Input
 HEADERS += kinematicpoints.h \
            mainwindow.h \
+           simulationcontroller.h \
            trajectorypoints.h \
            widgetanimation.h \
            widgetsettings.h
@@ -19,6 +20,7 @@ FORMS += mainwindow.ui \
 SOURCES += kinematicpoints.cpp \
            main.cpp \
            mainwindow.cpp \
+           simulationcontroller.cpp \
            trajectorypoints.cpp \
            widgetanimation.cpp \
            widgetsettings.cpp

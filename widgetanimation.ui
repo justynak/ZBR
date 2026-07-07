@@ -159,7 +159,7 @@
        </size>
       </property>
       <property name="text">
-       <string>200</string>
+       <string>350</string>
       </property>
      </widget>
     </item>
@@ -185,7 +185,7 @@
        </size>
       </property>
       <property name="text">
-       <string>200</string>
+       <string>300</string>
       </property>
      </widget>
     </item>
